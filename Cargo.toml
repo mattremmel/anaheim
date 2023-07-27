@@ -1,6 +1,6 @@
 [workspace]
 
 members = [
-    "anaheim-core",
+    "anaheim",
     "anaheim-derive"
 ]
