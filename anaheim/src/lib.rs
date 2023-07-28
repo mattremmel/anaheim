@@ -8,4 +8,5 @@ pub mod util;
 
 // re-exports
 pub use async_trait::async_trait;
+pub use derive_new::new;
 pub use mockall::automock;

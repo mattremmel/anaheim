@@ -1,7 +1,13 @@
 use anaheim_derive::{config, service};
 
 #[service]
-struct UserService {}
+struct UserService {
+    x: u32,
+    #[new(default)]
+    y: u32,
+    #[new(value = "1")]
+    z: u32,
+}
 
 #[service]
 impl UserService {
@@ -32,5 +38,6 @@ impl UserService {
 
 #[test]
 fn test() {
-    let _ = MyStructImpl {};
+    let actual = UserServiceImpl::new(10);
+    let _ = UserService::from(actual);
 }
