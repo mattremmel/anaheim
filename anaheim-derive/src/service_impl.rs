@@ -18,6 +18,7 @@ pub fn expand_service_impl(attr_args: TokenStream, mut item_impl: ItemImpl) -> R
     let service_impl_name = format_ident!("{}Impl", &service_name);
     let service_trait_name = format_ident!("{}Trait", &service_name);
 
+    // TODO: I think we can replace this with quote_parse or something
     item_impl.self_ty = Box::new(parse_str::<Type>(&service_impl_name.to_string())?);
 
     // TODO: Use iter instead of vec and loop
@@ -41,13 +42,11 @@ pub fn expand_service_impl(attr_args: TokenStream, mut item_impl: ItemImpl) -> R
 
     let delegate_trait_method_sigs = trait_methods
         .iter()
-        .map(|f| f.sig.clone())
-        .collect::<Vec<Signature>>();
+        .map(|f| f.sig.clone());
 
     let delegate_trait_method_impls = trait_methods
         .iter()
-        .map(|f| ServiceTraitMethodImpl(f.sig.clone()))
-        .collect::<Vec<ServiceTraitMethodImpl>>();
+        .map(|f| ServiceTraitMethodImpl(f.sig.clone()));
 
     Ok(quote! {
         // TODO: We need to figure out visibility. We don't have it on impl.
@@ -74,7 +73,7 @@ pub fn expand_service_impl(attr_args: TokenStream, mut item_impl: ItemImpl) -> R
     })
 }
 
-struct ServiceTraitMethodImpl(Signature);
+pub struct ServiceTraitMethodImpl(pub Signature);
 
 impl ToTokens for ServiceTraitMethodImpl {
     fn to_tokens(&self, tokens: &mut TokenStream) {

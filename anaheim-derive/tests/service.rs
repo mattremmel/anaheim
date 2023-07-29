@@ -1,7 +1,10 @@
 use anaheim_derive::{config, service};
 
+struct Config {}
+
 #[service]
 struct UserService {
+    config: Config,
     x: u32,
     #[new(default)]
     y: u32,
@@ -36,8 +39,14 @@ impl UserService {
     }
 }
 
+#[service]
+trait UserRepository {
+    async fn test();
+    fn test2();
+}
+
 #[test]
 fn test() {
-    let actual = UserServiceImpl::new(10);
+    let actual = UserServiceImpl::new(Config {}, 10);
     let _ = UserService::from(actual);
 }
