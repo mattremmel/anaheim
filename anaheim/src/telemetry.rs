@@ -1,23 +1,20 @@
-use crate::util::hostname;
+use std::time::Duration;
+
 use anyhow::Result;
-use opentelemetry::trace::TraceContextExt;
 use opentelemetry::{
     global,
-    sdk::{
-        trace::{self, RandomIdGenerator, Sampler},
-        Resource,
-    },
+    sdk::{trace, trace::BatchConfig, Resource},
     KeyValue,
 };
 use opentelemetry_otlp::WithExportConfig;
 use secrecy::{ExposeSecret, Secret};
 use serde::Deserialize;
-use std::time::Duration;
 use tokio::task::JoinHandle;
 use tonic::metadata::MetadataMap;
-use tracing::info;
-use tracing_opentelemetry::OpenTelemetrySpanExt;
+use tracing::debug;
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt, EnvFilter};
+
+use crate::util::hostname;
 
 // TODO: Looks like by default otel.status_code = Ok is not being set. Only set on errors.
 
@@ -80,15 +77,8 @@ pub fn init_telemetry(config: Config) -> Result<()> {
         let tracer = opentelemetry_otlp::new_pipeline()
             .tracing()
             .with_exporter(exporter)
-            .with_trace_config(
-                trace::config()
-                    // TODO: Make this configurable
-                    .with_sampler(Sampler::AlwaysOn)
-                    .with_id_generator(RandomIdGenerator::default())
-                    .with_max_events_per_span(64)
-                    .with_max_attributes_per_span(16)
-                    .with_resource(attributes),
-            )
+            .with_trace_config(trace::config().with_resource(attributes))
+            .with_batch_config(BatchConfig::default())
             .install_batch(opentelemetry::runtime::Tokio)?;
 
         // TODO: send logs and metrics as well
@@ -100,10 +90,11 @@ pub fn init_telemetry(config: Config) -> Result<()> {
         subscriber
             .with(tracing_opentelemetry::layer().with_tracer(tracer))
             .init();
-        info!("Initialized OpenTelemetry with config: {:?}", &otlp)
+
+        debug!("Initialized OpenTelemetry with config: {:?}", &otlp)
     } else {
         subscriber.init();
-        info!("Initialized telemetry logging")
+        debug!("Initialized telemetry logging")
     }
 
     Ok(())
@@ -117,13 +108,18 @@ pub async fn shutdown_telemetry() -> JoinHandle<()> {
     tokio::task::spawn_blocking(global::shutdown_tracer_provider)
 }
 
-pub fn current_trace_id() -> String {
-    format!(
-        "{:032x}",
-        tracing::Span::current()
-            .context()
-            .span()
-            .span_context()
-            .trace_id()
-    )
+pub mod utils {
+    use opentelemetry::trace::TraceContextExt;
+    use tracing_opentelemetry::OpenTelemetrySpanExt;
+
+    pub fn current_trace_id() -> String {
+        format!(
+            "{:032x}",
+            tracing::Span::current()
+                .context()
+                .span()
+                .span_context()
+                .trace_id()
+        )
+    }
 }

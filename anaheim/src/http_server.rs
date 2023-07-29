@@ -1,4 +1,5 @@
-use crate::shutdown::shutdown_token;
+use std::net::ToSocketAddrs;
+
 use anyhow::{anyhow, Result};
 use derive_new::new;
 use poem::endpoint::BoxEndpoint;
@@ -8,9 +9,10 @@ use poem::{
     IntoEndpoint, Route, Server,
 };
 use serde::Deserialize;
-use std::net::ToSocketAddrs;
 use tokio::time::Duration;
 use tracing::info;
+
+use crate::shutdown::shutdown_token;
 
 #[derive(Debug, Clone, Deserialize)]
 pub struct Config {
@@ -84,7 +86,7 @@ impl HttpServer {
             .run_with_graceful_shutdown(
                 self.route,
                 shutdown_token().cancelled(),
-                Some(Duration::from_secs(10)),
+                Some(Duration::from_secs(30)),
             )
             .await?;
 
@@ -95,9 +97,10 @@ impl HttpServer {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use poem_openapi::payload::PlainText;
     use poem_openapi::OpenApi;
+
+    use super::*;
 
     struct UserController;
 
