@@ -1,13 +1,8 @@
 use crate::service_impl::ServiceTraitMethodImpl;
 use crate::syn_utils::parse_attr_args;
 use proc_macro2::TokenStream;
-use quote::{format_ident, quote, ToTokens, TokenStreamExt};
-use syn::punctuated::Punctuated;
-use syn::token::Comma;
-use syn::{
-    parse_str, FnArg, ImplItem, ItemImpl, ItemTrait, Pat, PatIdent, Result, Signature, TraitItem,
-    Type, Visibility,
-};
+use quote::{format_ident, quote};
+use syn::{ItemTrait, Result, TraitItem};
 
 pub fn expand_service_trait(
     attr_args: TokenStream,

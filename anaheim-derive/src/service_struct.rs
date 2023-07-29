@@ -1,8 +1,8 @@
 use crate::struct_new::{expand_delegate_new_impl, expand_struct_new_impl};
 use crate::syn_utils::parse_attr_args;
-use proc_macro2::{Ident, TokenStream};
+use proc_macro2::TokenStream;
 use quote::{format_ident, quote};
-use syn::{Fields, ItemStruct, Result};
+use syn::{ItemStruct, Result};
 
 pub fn expand_service_struct(
     attr_args: TokenStream,

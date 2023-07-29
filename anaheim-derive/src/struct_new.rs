@@ -13,11 +13,8 @@ fn path_to_string(path: &syn::Path) -> String {
 }
 
 use proc_macro2::{Ident, LexError, Span, TokenStream};
-use quote::{quote_spanned, ToTokens, TokenStreamExt};
-use syn::{
-    punctuated::Punctuated, Attribute, Fields, ImplGenerics, ItemStruct, Token, TypeGenerics,
-    WhereClause,
-};
+use quote::quote_spanned;
+use syn::{punctuated::Punctuated, Fields, ItemStruct, Token};
 
 pub fn expand_struct_new_impl(item: &ItemStruct) -> TokenStream {
     let (fields, named) = match item.fields {
@@ -82,12 +79,11 @@ pub fn expand_delegate_new_impl(service_impl: &ItemStruct, delegate_name: &Ident
     let args = fields.iter().filter(|f| f.needs_arg()).map(|f| f.as_arg());
     let arg_names = fields.iter().filter(|f| f.needs_arg()).map(|f| &f.ident);
     let (impl_generics, ty_generics, where_clause) = service_impl.generics.split_for_impl();
-    let (mut new, qual, doc) = (
-        syn::Ident::new("new", proc_macro2::Span::call_site()),
-        my_quote!(),
+    let (mut new, doc) = (
+        Ident::new("new", Span::call_site()),
         format!("Constructs a new `{}`.", delegate_name),
     );
-    new.set_span(proc_macro2::Span::call_site());
+    new.set_span(Span::call_site());
     let lint_attrs = collect_parent_lint_attrs(&service_impl.attrs);
     let lint_attrs = my_quote![#(#lint_attrs),*];
     my_quote! {

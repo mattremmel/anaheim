@@ -22,13 +22,14 @@ pub fn expand_service_impl(attr_args: TokenStream, mut item_impl: ItemImpl) -> R
     item_impl.self_ty = Box::new(parse_str::<Type>(&service_impl_name.to_string())?);
 
     // TODO: Use iter instead of vec and loop
-    // TODO: If don't have self, then can maybe take whole body as a default?
+    // TODO: Option to opt-out public method from trait
+    // TODO: Option to set pub func without receiver as default trait impl
     let mut trait_methods = Vec::new();
     let mut non_trait_methods = Vec::new();
     for item in item_impl.items {
         match item {
             ImplItem::Fn(mut method) => {
-                if matches!(method.vis, Visibility::Public(_)) && method.sig.receiver().is_some() {
+                if matches!(method.vis, Visibility::Public(_)) {
                     method.vis = Visibility::Inherited;
                     trait_methods.push(method);
                 } else {
@@ -40,16 +41,15 @@ pub fn expand_service_impl(attr_args: TokenStream, mut item_impl: ItemImpl) -> R
         }
     }
 
-    let delegate_trait_method_sigs = trait_methods
-        .iter()
-        .map(|f| f.sig.clone());
+    let delegate_trait_method_sigs = trait_methods.iter().map(|f| f.sig.clone());
 
     let delegate_trait_method_impls = trait_methods
         .iter()
         .map(|f| ServiceTraitMethodImpl(f.sig.clone()));
 
     Ok(quote! {
-        // TODO: We need to figure out visibility. We don't have it on impl.
+        // TODO: Option for private trait
+        // TODO: Option for sealed trait?
         // TODO: Need to be able to opt-out of automock
         #[cfg(test, ::anaheim::automock)]
         #[::anaheim::async_trait]
