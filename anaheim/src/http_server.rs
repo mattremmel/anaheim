@@ -2,8 +2,8 @@ use std::net::ToSocketAddrs;
 
 use anyhow::{anyhow, Result};
 use derive_new::new;
-use poem::endpoint::BoxEndpoint;
 use poem::{
+    endpoint::BoxEndpoint,
     listener::{Acceptor, Listener, TcpAcceptor, TcpListener},
     web::LocalAddr,
     IntoEndpoint, Route, Server,
@@ -97,18 +97,19 @@ impl HttpServer {
 
 #[cfg(test)]
 mod tests {
-    use poem_openapi::payload::PlainText;
-    use poem_openapi::OpenApi;
+    use anaheim_derive::controller;
 
     use super::*;
 
-    struct UserController;
+    #[controller]
+    struct UserController {}
 
-    #[OpenApi]
+    #[controller(path = "/user")]
     impl UserController {
-        #[oai(path = "/hello", method = "get")]
-        async fn hello(&self) -> PlainText<&str> {
-            PlainText("hello")
+        #[handler(path = "/hello", method = "get")]
+        pub async fn hello(&self) -> Result<PlainText<&str>, String> {
+            _ = self.user_service.process_request(req).await?;
+            Ok(PlainText("hello"))
         }
     }
 
@@ -120,7 +121,7 @@ mod tests {
             host: "127.0.0.1".to_string(),
             port: 0,
         })
-        .add(UserController)
+        .add(UserController::new(UserService))
         .build();
     }
 }

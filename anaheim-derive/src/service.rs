@@ -5,6 +5,8 @@ use syn::{
     ItemTrait, Pat, PatIdent, Result, Signature, TraitItem, Type, Visibility,
 };
 
+use shared::DelegateTraitMethodImpl;
+
 use crate::{
     struct_new::{expand_delegate_new_impl, expand_struct_new_impl},
     syn_utils::parse_attr_args,
@@ -12,9 +14,9 @@ use crate::{
 
 pub fn expand_service_attribute(attr_args: TokenStream, item: Item) -> Result<TokenStream> {
     match item {
-        Item::Struct(input) => expand_service_struct(attr_args.into(), input),
-        Item::Impl(input) => expand_service_impl(attr_args.into(), input),
-        Item::Trait(input) => expand_service_trait(attr_args.into(), input),
+        Item::Struct(input) => expand_service_struct(attr_args, input),
+        Item::Impl(input) => expand_service_impl(attr_args, input),
+        Item::Trait(input) => expand_service_trait(attr_args, input),
         _ => panic!("Service attribute not supported on this type"),
     }
 }
@@ -80,7 +82,7 @@ fn expand_service_impl(attr_args: TokenStream, mut item_impl: ItemImpl) -> Resul
     let service_name = match &*item_impl.self_ty {
         // TODO: I don't like this
         Type::Path(tp) => tp.path.get_ident().unwrap().clone(),
-        _ => panic!("service doesn't support type"),
+        _ => panic!("Service attribute doesn't support type"),
     };
     let service_impl_name = format_ident!("{}Impl", &service_name);
     let service_trait_name = format_ident!("{}Trait", &service_name);
@@ -112,7 +114,7 @@ fn expand_service_impl(attr_args: TokenStream, mut item_impl: ItemImpl) -> Resul
 
     let delegate_trait_method_impls = trait_methods
         .iter()
-        .map(|f| ServiceTraitMethodImpl(f.sig.clone()));
+        .map(|f| DelegateTraitMethodImpl(f.sig.clone()));
 
     Ok(quote! {
         // TODO: Option for private trait
@@ -140,42 +142,6 @@ fn expand_service_impl(attr_args: TokenStream, mut item_impl: ItemImpl) -> Resul
     })
 }
 
-struct ServiceTraitMethodImpl(pub Signature);
-
-impl ToTokens for ServiceTraitMethodImpl {
-    fn to_tokens(&self, tokens: &mut TokenStream) {
-        self.0.to_tokens(tokens);
-
-        let method_name = self.0.ident.clone();
-        let method_args = self
-            .0
-            .inputs
-            .clone()
-            .into_iter()
-            .filter_map(|a| {
-                if let FnArg::Typed(p) = a {
-                    match &*p.pat {
-                        Pat::Ident(ident) => Some(ident.clone()),
-                        // TODO: Can we include span of pattern?
-                        _ => panic!("Service attribute not supported for functions with non identifier argument patterns"),
-                    }
-                } else {
-                    // ignore the receiver
-                    None
-                }
-            })
-            .collect::<Punctuated<PatIdent, Comma>>();
-
-        let call_await = self.0.asyncness.map(|_| quote!(.await));
-
-        tokens.append_all(quote! {
-            {
-                self.inner.#method_name(#method_args)#call_await
-            }
-        });
-    }
-}
-
 fn expand_service_trait(attr_args: TokenStream, mut item_trait: ItemTrait) -> Result<TokenStream> {
     let _attr_args = parse_attr_args(attr_args)?;
 
@@ -185,7 +151,7 @@ fn expand_service_trait(attr_args: TokenStream, mut item_trait: ItemTrait) -> Re
     let service_trait_items = &item_trait.items;
     let delegate_trait_method_impls = item_trait.items.iter().filter_map(|i| {
         if let TraitItem::Fn(f) = i {
-            Some(ServiceTraitMethodImpl(f.sig.clone()))
+            Some(DelegateTraitMethodImpl(f.sig.clone()))
         } else {
             None
         }
@@ -212,6 +178,12 @@ fn expand_service_trait(attr_args: TokenStream, mut item_trait: ItemTrait) -> Re
             }
         }
 
+        #[cfg(test, ::anaheim::automock)]
+        #[::anaheim::async_trait]
+        #service_vis trait #service_trait_name {
+            #(#service_trait_items)*
+        }
+
         #[::anaheim::async_trait]
         impl #service_trait_name for #service_name {
             #(#delegate_trait_method_impls)*
@@ -230,11 +202,45 @@ fn expand_service_trait(attr_args: TokenStream, mut item_trait: ItemTrait) -> Re
                 }
             }
         }
-
-        #[cfg(test, ::anaheim::automock)]
-        #[::anaheim::async_trait]
-        #service_vis trait #service_trait_name {
-            #(#service_trait_items)*
-        }
     })
+}
+
+mod shared {
+    use super::*;
+
+    pub struct DelegateTraitMethodImpl(pub Signature);
+
+    impl ToTokens for DelegateTraitMethodImpl {
+        fn to_tokens(&self, tokens: &mut TokenStream) {
+            self.0.to_tokens(tokens);
+
+            let method_name = self.0.ident.clone();
+            let method_args = self
+                .0
+                .inputs
+                .clone()
+                .into_iter()
+                .filter_map(|a| {
+                    if let FnArg::Typed(p) = a {
+                        match &*p.pat {
+                            Pat::Ident(ident) => Some(ident.clone()),
+                            // TODO: Can we include span of pattern?
+                            _ => panic!("Service attribute not supported for functions with non identifier argument patterns"),
+                        }
+                    } else {
+                        // ignore the receiver
+                        None
+                    }
+                })
+                .collect::<Punctuated<PatIdent, Comma>>();
+
+            let call_await = self.0.asyncness.map(|_| quote!(.await));
+
+            tokens.append_all(quote! {
+                {
+                    self.inner.#method_name(#method_args)#call_await
+                }
+            });
+        }
+    }
 }

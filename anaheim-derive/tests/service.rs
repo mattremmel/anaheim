@@ -1,4 +1,4 @@
-use anaheim_derive::{config, service};
+use anaheim_derive::service;
 
 struct Config {}
 
@@ -47,6 +47,6 @@ trait UserRepository {
 
 #[test]
 fn test() {
-    let actual = UserServiceImpl::new(Config {}, 10);
-    let _ = UserService::from(actual);
+    let _ = UserService::new(Config {}, 10);
+    let _ = UserService::from(UserServiceImpl::new(Config {}, 10));
 }

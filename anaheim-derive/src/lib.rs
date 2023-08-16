@@ -4,14 +4,12 @@ use syn::{parse_macro_input, Item};
 
 use syn_utils::into_macro_output;
 
-use crate::config_struct::expand_config_struct;
-use crate::controller_impl::expand_controller_impl;
-use crate::controller_struct::expand_controller_struct;
+use crate::config::expand_config_struct;
+use crate::controller::expand_controller_attribute;
 use crate::service::expand_service_attribute;
 
-mod config_struct;
-mod controller_impl;
-mod controller_struct;
+mod config;
+mod controller;
 mod service;
 mod struct_new;
 mod syn_utils;
@@ -32,11 +30,10 @@ pub fn config(attr_args: TokenStream, item: TokenStream) -> TokenStream {
 
 #[proc_macro_attribute]
 pub fn controller(attr_args: TokenStream, item: TokenStream) -> TokenStream {
-    match parse_macro_input!(item as Item) {
-        Item::Struct(input) => into_macro_output(expand_controller_struct(attr_args.into(), input)),
-        Item::Impl(input) => into_macro_output(expand_controller_impl(attr_args.into(), input)),
-        _ => panic!("Controller attribute not supported on this type"),
-    }
+    into_macro_output(expand_controller_attribute(
+        attr_args.into(),
+        parse_macro_input!(item as Item),
+    ))
 }
 
 #[proc_macro_attribute]
